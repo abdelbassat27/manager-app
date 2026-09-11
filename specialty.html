@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl" data-theme="light">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="theme-color" content="#2563eb" />
+  <title>اختر اختصاصك • Manager App</title>
+  <script>
+    (function () {
+      try {
+        var t = JSON.parse(localStorage.getItem('managerapp:theme'));
+        if (!t) t = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+        document.documentElement.setAttribute('data-theme', t);
+      } catch (e) {}
+    })();
+  </script>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="assets/css/main.css" />
+</head>
+<body data-page="specialty">
+  <div class="specialty-page">
+    <div class="specialty-card">
+      <div class="specialty-card__head">
+        <span class="brand__logo" style="width:48px;height:48px;font-size:22px">M</span>
+        <div>
+          <h1>ما هو اختصاصك؟</h1>
+          <p class="muted">اختر القسم أو الأقسام التي تعمل عليها. ستظهر لك فقط في القائمة ولوحة القيادة.</p>
+        </div>
+      </div>
+
+      <div class="module-grid" id="moduleGrid"></div>
+
+      <p class="specialty-hint muted small" id="hintText">يمكنك اختيار أكثر من اختصاص إن لزم الأمر.</p>
+
+      <div class="specialty-actions">
+        <button type="button" class="btn btn--ghost" id="btnSelectAll">تحديد الكل</button>
+        <button type="button" class="btn btn--primary" id="btnSaveModules" disabled>متابعة</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="assets/js/app.js"></script>
+  <script>
+    (function () {
+      if (!App.Auth.isLoggedIn()) {
+        window.location.replace('index.html');
+        return;
+      }
+
+      var selected = {};
+      App.Access.getModules().forEach(function (id) { selected[id] = true; });
+
+      var grid = document.getElementById('moduleGrid');
+      var btnSave = document.getElementById('btnSaveModules');
+
+      function render() {
+        grid.innerHTML = App.MODULES.map(function (m) {
+          var on = !!selected[m.id];
+          return (
+            '<button type="button" class="module-tile' + (on ? ' is-selected' : '') + '" data-id="' + m.id + '" style="--tile-color:' + m.color + '">' +
+              '<span class="module-tile__icon">' + App.icon(m.icon) + '</span>' +
+              '<strong>' + m.label + '</strong>' +
+              '<small>' + m.desc + '</small>' +
+              '<span class="module-tile__check" aria-hidden="true">' + (on ? '✓' : '') + '</span>' +
+            '</button>'
+          );
+        }).join('');
+        var count = Object.keys(selected).filter(function (k) { return selected[k]; }).length;
+        btnSave.disabled = count === 0;
+        btnSave.textContent = count ? 'متابعة (' + count + ')' : 'اختر اختصاصاً واحداً على الأقل';
+      }
+
+      grid.addEventListener('click', function (e) {
+        var tile = e.target.closest('.module-tile');
+        if (!tile) return;
+        var id = tile.dataset.id;
+        selected[id] = !selected[id];
+        if (!selected[id]) delete selected[id];
+        render();
+      });
+
+      document.getElementById('btnSelectAll').addEventListener('click', function () {
+        var allOn = App.MODULES.every(function (m) { return selected[m.id]; });
+        if (allOn) {
+          selected = {};
+        } else {
+          App.MODULES.forEach(function (m) { selected[m.id] = true; });
+        }
+        render();
+      });
+
+      btnSave.addEventListener('click', function () {
+        var ids = Object.keys(selected).filter(function (k) { return selected[k]; });
+        if (!ids.length) return;
+        App.Access.setModules(ids);
+        window.location.href = 'dashboard.html';
+      });
+
+      render();
+    })();
+  </script>
+</body>
+</html>
