@@ -1,0 +1,389 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl" data-theme="light">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="theme-color" content="#2563eb" />
+  <title>الإدارة المالية • Manager App</title>
+
+  <script>
+    (function () {
+      try {
+        var t = JSON.parse(localStorage.getItem('managerapp:theme')) ||
+                (matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+        document.documentElement.setAttribute('data-theme', t);
+      } catch (e) {}
+    })();
+  </script>
+
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="../assets/css/main.css" />
+  <link rel="stylesheet" href="../assets/css/tables.css" />
+  <link rel="stylesheet" href="../assets/css/dashboard.css" />
+
+  <style>
+    /* ---------- شريط الفلاتر ---------- */
+    .filters {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+      gap: 10px;
+      margin-bottom: 4px;
+    }
+
+    /* ---------- النافذة المنبثقة ---------- */
+    .modal {
+      position: fixed;
+      inset: 0;
+      background: rgba(8,15,30,.55);
+      backdrop-filter: blur(3px);
+      z-index: 100;
+      display: grid;
+      place-items: center;
+      padding: 20px;
+      opacity: 0;
+      visibility: hidden;
+      transition: opacity .2s, visibility .2s;
+    }
+    .modal.is-open { opacity: 1; visibility: visible; }
+
+    .modal__dialog {
+      background: var(--bg-elev);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-lg);
+      width: 100%;
+      max-width: 460px;
+      padding: 26px;
+      box-shadow: var(--shadow-lg);
+      transform: translateY(16px);
+      transition: transform .25s cubic-bezier(.34,1.56,.64,1);
+      max-height: 92dvh;
+      overflow-y: auto;
+    }
+    .modal.is-open .modal__dialog { transform: translateY(0); }
+
+    .modal__head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 20px;
+    }
+    .modal__head h3 { font-size: 17px; }
+
+    /* ---------- مبدّل النوع ---------- */
+    .type-toggle {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+      padding: 6px;
+      background: var(--bg-soft);
+      border-radius: var(--radius-sm);
+      margin-bottom: 18px;
+    }
+    .type-toggle__btn {
+      padding: 10px;
+      border-radius: 8px;
+      font-weight: 700;
+      font-size: 13.5px;
+      color: var(--text-soft);
+      transition: all var(--t-fast);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+    }
+    .type-toggle__btn.is-active[data-type="in"] {
+      background: var(--success); color: #fff;
+      box-shadow: 0 6px 14px -6px rgba(22,163,74,.7);
+    }
+    .type-toggle__btn.is-active[data-type="out"] {
+      background: var(--danger); color: #fff;
+      box-shadow: 0 6px 14px -6px rgba(220,38,38,.7);
+    }
+    .type-toggle__btn svg { width: 15px; height: 15px; }
+
+    .modal__footer {
+      display: flex;
+      gap: 10px;
+      margin-top: 20px;
+    }
+    .modal__footer .btn { flex: 1; justify-content: center; }
+
+    /* ---------- حذف صغير ---------- */
+    .icon-btn--sm {
+      width: 34px; height: 34px;
+      border-radius: 9px;
+    }
+    .icon-btn--sm svg { width: 16px; height: 16px; }
+    .icon-btn--sm:hover { color: var(--danger); background: var(--danger-50); }
+  </style>
+</head>
+
+<body class="is-subpage" data-page="finance">
+
+  <div class="app">
+
+    <aside class="sidebar" id="sidebar" aria-label="القائمة الرئيسية">
+      <div class="sidebar__brand">
+        <span class="brand__logo">M</span>
+        <span class="brand__text">
+          <strong>Manager App</strong>
+          <small>نظام الإدارة الشامل</small>
+        </span>
+      </div>
+      <nav class="sidebar__nav" id="sidebarNav"></nav>
+      <div class="sidebar__footer">
+        <div class="storage-note">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"
+               stroke-linecap="round" stroke-linejoin="round">
+            <ellipse cx="12" cy="5" rx="9" ry="3"/>
+            <path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"/>
+            <path d="M3 12c0 1.66 4 3 9 3s9-1.34 9-3"/>
+          </svg>
+          <span>البيانات محفوظة محلياً على هذا الجهاز</span>
+        </div>
+      </div>
+    </aside>
+
+    <div class="overlay" id="overlay"></div>
+
+    <div class="main">
+      <header class="topbar">
+        <button class="icon-btn icon-btn--menu" id="menuBtn" aria-label="فتح القائمة" aria-expanded="false">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+            <line x1="3" y1="6" x2="21" y2="6"/>
+            <line x1="3" y1="12" x2="21" y2="12"/>
+            <line x1="3" y1="18" x2="21" y2="18"/>
+          </svg>
+        </button>
+
+        <div class="topbar__title">
+          <h1>الإدارة المالية</h1>
+          <p>تسجيل المداخيل والمصاريف ومتابعة صافي الربح</p>
+        </div>
+
+        <div class="topbar__actions">
+          <button class="icon-btn" id="themeBtn" aria-label="تبديل الوضع الليلي">
+            <svg class="icon-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"
+                 stroke-linecap="round" stroke-linejoin="round">
+              <circle cx="12" cy="12" r="4.5"/>
+              <path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/>
+            </svg>
+            <svg class="icon-moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"
+                 stroke-linecap="round" stroke-linejoin="round">
+              <path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/>
+            </svg>
+          </button>
+          <div class="avatar" title="المدير">أ</div>
+        </div>
+      </header>
+
+      <main class="content">
+
+        <!-- العنوان + الأزرار -->
+        <section class="page-head">
+          <div>
+            <h2>الحركة المالية</h2>
+            <p class="muted">سجّل عملياتك اليومية وراقب صافي الربح لحظياً.</p>
+          </div>
+          <div class="page-head__actions">
+            <button class="btn btn--ghost" id="btnExport">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                   stroke-linecap="round" stroke-linejoin="round">
+                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                <polyline points="7 10 12 15 17 10"/>
+                <line x1="12" y1="15" x2="12" y2="3"/>
+              </svg>
+              تصدير CSV
+            </button>
+            <button class="btn btn--primary js-open-modal" data-type="in">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round">
+                <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
+              </svg>
+              عملية جديدة
+            </button>
+          </div>
+        </section>
+
+        <!-- بطاقات الملخص -->
+        <section class="stats">
+          <div class="stat-card stat-card--success">
+            <div class="stat-card__icon">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                   stroke-linecap="round" stroke-linejoin="round">
+                <path d="M12 19V5"/><path d="M5 12l7-7 7 7"/>
+              </svg>
+            </div>
+            <span class="stat-card__label">إجمالي المداخيل</span>
+            <span class="stat-card__value" id="sumIncome">0 دج</span>
+            <span class="stat-card__sub">حسب الفلتر الحالي</span>
+          </div>
+
+          <div class="stat-card stat-card--danger">
+            <div class="stat-card__icon">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                   stroke-linecap="round" stroke-linejoin="round">
+                <path d="M12 5v14"/><path d="M19 12l-7 7-7-7"/>
+              </svg>
+            </div>
+            <span class="stat-card__label">إجمالي المصاريف</span>
+            <span class="stat-card__value" id="sumExpense">0 دج</span>
+            <span class="stat-card__sub">حسب الفلتر الحالي</span>
+          </div>
+
+          <div class="stat-card stat-card--primary">
+            <div class="stat-card__icon">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                   stroke-linecap="round" stroke-linejoin="round">
+                <path d="M3 17l6-6 4 4 8-8"/><path d="M14 7h7v7"/>
+              </svg>
+            </div>
+            <span class="stat-card__label">صافي الربح</span>
+            <span class="stat-card__value" id="sumProfit">0 دج</span>
+            <span class="stat-card__sub">المداخيل − المصاريف</span>
+          </div>
+
+          <div class="stat-card stat-card--info">
+            <div class="stat-card__icon">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                   stroke-linecap="round" stroke-linejoin="round">
+                <path d="M9 11H3v10h6zM21 3h-6v18h6zM15 7H9v14h6z"/>
+              </svg>
+            </div>
+            <span class="stat-card__label">عدد العمليات</span>
+            <span class="stat-card__value" id="sumCount">0</span>
+            <span class="stat-card__sub">سجل مطابق</span>
+          </div>
+        </section>
+
+        <!-- الرسم البياني -->
+        <section class="card chart-card">
+          <header class="card__head">
+            <div>
+              <h3>تطور الحركة المالية</h3>
+              <p class="muted small">مجمّعة يومياً حسب الفلتر الحالي</p>
+            </div>
+          </header>
+          <div class="chart-wrap">
+            <canvas id="financeChart"></canvas>
+          </div>
+          <div class="chart-legend">
+            <span class="chart-legend__item">
+              <span class="chart-legend__dot" style="background:#16a34a"></span> مداخيل
+            </span>
+            <span class="chart-legend__item">
+              <span class="chart-legend__dot" style="background:#dc2626"></span> مصاريف
+            </span>
+          </div>
+        </section>
+
+        <!-- الفلاتر -->
+        <section class="card">
+          <header class="card__head">
+            <h3>الفلترة والبحث</h3>
+          </header>
+          <div class="filters">
+            <select class="select" id="filterMonth"></select>
+            <select class="select" id="filterType">
+              <option value="all">كل الأنواع</option>
+              <option value="in">مداخيل فقط</option>
+              <option value="out">مصاريف فقط</option>
+            </select>
+            <select class="select" id="filterCategory"></select>
+            <input class="input" type="search" id="filterSearch" placeholder="ابحث في البيان…" />
+          </div>
+        </section>
+
+        <!-- جدول العمليات -->
+        <section class="card">
+          <header class="card__head">
+            <h3>سجل العمليات</h3>
+          </header>
+          <div class="table-wrap">
+            <table class="table">
+              <thead>
+                <tr>
+                  <th>النوع</th>
+                  <th>البيان</th>
+                  <th>التصنيف</th>
+                  <th>التاريخ</th>
+                  <th class="t-end">المبلغ</th>
+                  <th></th>
+                </tr>
+              </thead>
+              <tbody id="txBody"></tbody>
+            </table>
+          </div>
+        </section>
+
+      </main>
+    </div>
+  </div>
+
+  <!-- ============ نافذة إضافة عملية ============ -->
+  <div class="modal" id="txModal" role="dialog" aria-modal="true">
+    <div class="modal__dialog">
+      <div class="modal__head">
+        <h3>عملية جديدة</h3>
+        <button class="icon-btn js-close-modal" aria-label="إغلاق">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+            <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+          </svg>
+        </button>
+      </div>
+
+      <form novalidate>
+        <input type="hidden" name="type" value="in" />
+
+        <div class="type-toggle">
+          <button type="button" class="type-toggle__btn is-active" data-type="in">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"
+                 stroke-linecap="round" stroke-linejoin="round">
+              <path d="M12 19V5"/><path d="M5 12l7-7 7 7"/>
+            </svg>
+            مدخول
+          </button>
+          <button type="button" class="type-toggle__btn" data-type="out">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"
+                 stroke-linecap="round" stroke-linejoin="round">
+              <path d="M12 5v14"/><path d="M19 12l-7 7-7-7"/>
+            </svg>
+            مصروف
+          </button>
+        </div>
+
+        <div class="form-group">
+          <label for="amount">المبلغ (دج)</label>
+          <input class="input" type="number" step="0.01" min="0" name="amount"
+                 placeholder="0.00" inputmode="decimal" required />
+        </div>
+
+        <div class="form-group">
+          <label for="category">التصنيف</label>
+          <select class="select" name="category" required></select>
+        </div>
+
+        <div class="form-group">
+          <label for="description">البيان</label>
+          <input class="input" type="text" name="description"
+                 placeholder="مثال: بيع 5 كغ سكر" required />
+        </div>
+
+        <div class="form-group">
+          <label for="date">التاريخ</label>
+          <input class="input" type="date" name="date" required />
+        </div>
+
+        <div class="modal__footer">
+          <button type="button" class="btn btn--ghost js-close-modal">إلغاء</button>
+          <button type="submit" class="btn btn--primary">حفظ العملية</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <script src="../assets/js/app.js"></script>
+  <script src="../assets/js/charts.js"></script>
+  <script src="../assets/js/finance.js"></script>
+</body>
+</html>
